@@ -179,7 +179,6 @@
       <TreatWarningAsError Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</TreatWarningAsError>
       <TreatWarningAsError Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</TreatWarningAsError>
     </ClCompile>
-    <ClCompile Include="aesIMMNotificationClient.cpp" />
     <ClCompile Include="Settings.cpp" />
   </ItemGroup>
   <ItemGroup>

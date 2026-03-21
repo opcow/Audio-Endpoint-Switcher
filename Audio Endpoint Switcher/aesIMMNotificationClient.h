@@ -16,11 +16,6 @@ class CMMNotificationClient :
 	LONG _cRef;
 	CComPtr<IMMDeviceEnumerator> _pEnumerator;
 	HWND mhWnd;
-//	CQSESPrefs * mpPrefs;
-
-
-	// Private function to print device-friendly name
-	//HRESULT _PrintDeviceName(LPCWSTR  pwstrId);
 
 public:
 
