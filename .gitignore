@@ -1,0 +1,23 @@
+################################################################################
+# This .gitignore file was automatically created by Microsoft(R) Visual Studio.
+################################################################################
+
+Audio Endpoint Switcher/Debug
+Audio Endpoint Switcher/Release
+Audio Endpoint Switcher/x64/Debug
+Debug
+Release
+.vs
+*.tlog
+*.obj
+*.aps
+/Audio Endpoint Switcher/x64/Release/Audio Endpoint Switcher.exe.recipe
+*.cod
+*.ipdb
+*.iobj
+*.pdb
+*.log
+Audio Endpoint Switcher/x64
+x64
+Audio Endpoint Switcher/Quick So.E8256141
+unused
