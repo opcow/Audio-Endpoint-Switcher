@@ -4,6 +4,8 @@
 #include "windows.h"
 #include <map>
 
+const int cMaxDevices = 20;
+
 enum prefs_sections {
 	globals,
 	device,
@@ -45,8 +47,8 @@ public:
 	void Add(DevicePrefs *sdi);
 	void Update(DevicePrefs *sdi);
 	bool SetMax(int max);
-	int GetMax() { return mMax; };
-	int GetCount() { return mNext; };
+	int GetMax() const { return mMax; };
+	int GetCount() const { return mNext; };
 	// hotkey
 	void SetHotkeyString(int index, const wstring & keystring) { if (index < mNext) mDevices[index].HotkeyString = keystring; }
 	wstring& GetHotkeyString(int index, wstring & keyString);
@@ -60,20 +62,18 @@ public:
 	void SetExcludeFromCycle(int index, bool b) { if (index < mNext) mDevices[index].IsExcludedFromCycle = b; }
 	bool GetExcludeFromCycle(int index);
 	void SetCycleKeyString(const WCHAR * s) { mCycleKeyString = s; }
-	wstring& GetCycleKeyString(wstring& s) { return s = mCycleKeyString; }
+	wstring& GetCycleKeyString(wstring& s) const { return s = mCycleKeyString; }
 	void SetCycleKeyCode(UINT key) { mKeyCode = key; }
-	UINT GetCycleKeyCode() { return mKeyCode; }
+	UINT GetCycleKeyCode() const { return mKeyCode; }
 	void SetCycleKeyMods(UINT mods) { mKeyMods = mods; }
-	UINT GetCycleKeyMods() { return mKeyMods; }
+	UINT GetCycleKeyMods() const { return mKeyMods; }
 	void EnableCycleKey(bool enabled) { mIsCycleKeyEnabled = enabled; }
-	bool GetCycleKeyEnabled() { return mIsCycleKeyEnabled; }
+	bool GetCycleKeyEnabled() const { return mIsCycleKeyEnabled; }
 	// misc
 	void SetIsHidden(int index, bool b) { if (index < mNext) mDevices[index].IsHidden = b; }
 	bool GetIsHidden(int index);
 	void SetIsPresent(int index, bool b) { if (index < mNext) mDevices[index].IsPresent = b; }
 	bool GetIsPresent(int index);
-	//void SetDefault(int index) { if (index < mNext) mDefault = index; }
-	//int GetDefault() { return mDefault; }
 	void Swap(int d1, int d2);
 	void Sort();
 	// device info
@@ -90,16 +90,15 @@ public:
 	bool Save();
 
 	CQSESPrefs( const CQSESPrefs& other );
-	CQSESPrefs() : mDevices(0), mNext(0), mMax(10), /*mDefault(0),*/ mKeyCode(0),
-							mKeyMods(0), mCycleKeyString(L""), mIsCycleKeyEnabled(false),
-							mDevicesHaveChanged(false) { }
+	CQSESPrefs() : mDevices(0), mNext(0), mMax(cMaxDevices), mKeyCode(0),
+							mKeyMods(0), mCycleKeyString(L""), mIsCycleKeyEnabled(false)
+							{ }
 	~CQSESPrefs() { delete[] mDevices; }
 	CQSESPrefs& operator=(const CQSESPrefs& source);
 
 private:
 
 	void Erase(int index);
-	//bool Insert(int index, DevicePrefs * sdi);
 	void Remove(int index);
 	void RemoveDupes();
 	int FindByName(wstring & name);
@@ -108,12 +107,10 @@ private:
 	DevicePrefs * mDevices;
 	int mMax;
 	int mNext;
-	//int mDefault;
 	UINT mKeyCode;
 	UINT mKeyMods;
 	wstring mCycleKeyString;
 	bool mIsCycleKeyEnabled;
-	bool mDevicesHaveChanged; // not used
-	static const int mLimit = 16;
+	static const int mLimit = cMaxDevices;
 
 };

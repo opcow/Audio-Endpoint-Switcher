@@ -29,6 +29,7 @@ using namespace std;
 #define ID_MENU_EXIT (UINT)140
 #define ID_MENU_SETTINGS (UINT)150
 #define CYCLE_HOTKEY (UINT)200
+#define TIMER_AUDIO_REFRESH (UINT)1234
 
 // Global Variables:
 HINSTANCE hInst;
@@ -41,7 +42,6 @@ WCHAR gszWindowClass[MAX_LOADSTRING];
 WCHAR gszApplicationToolTip[MAX_LOADSTRING];
 HINSTANCE ghInstance;
 HWND gOpenWindow = 0;
-const int cMaxDevices = 10;
 const UINT gHotkeyFlags = MOD_NOREPEAT;
 wstringstream gVersionString;
 
@@ -224,7 +224,6 @@ void InstallHotkeys(HWND hWnd)
 	{
 		UnregisterHotKey(hWnd, CYCLE_HOTKEY);
 		if (0 == RegisterHotKey(hWnd, CYCLE_HOTKEY, gPrefs.GetCycleKeyMods() | gHotkeyFlags, gPrefs.GetCycleKeyCode()))
-		//if (0 == RegisterHotKey(hWnd, CYCLE_HOTKEY, MOD_ALT | MOD_NOREPEAT, 0x42))
 		{
 			s = L"Cycle Hotkey";
 			HandleHotkeyError(s);
@@ -237,7 +236,6 @@ void CycleDevices()
 {
 	wstring IdString;
 	UINT count = gPrefs.GetCount();
-//	UINT start = (gPrefs.GetDefault() + 1);
 	UINT start = gPrefs.FindByID(GetDefaultAudioPlaybackDevice(IdString)) + 1;
 
 	for (UINT i = 0, j; i < count; i++)
@@ -247,7 +245,6 @@ void CycleDevices()
 		if(!gPrefs.GetExcludeFromCycle(j) && !gPrefs.GetIsHidden(j) && gPrefs.GetIsPresent(j))
 		{
 			SetDefaultAudioPlaybackDevice((gPrefs.GetID(j, IdString)).c_str());
-//			gPrefs.SetDefault(j);
 			break;
 		}
 	}
@@ -540,6 +537,21 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	case WM_DESTROY:
 		PostQuitMessage(0);
 		break;
+
+	case WM_POWERBROADCAST:
+		if (wParam == PBT_APMRESUMEAUTOMATIC) {
+			SetTimer(hWnd, TIMER_AUDIO_REFRESH, 1000, nullptr); // delay 1s
+		}
+		break;
+
+	case WM_TIMER:
+		if (wParam == TIMER_AUDIO_REFRESH) {
+			KillTimer(hWnd, TIMER_AUDIO_REFRESH);
+			EnumerateDevices(); // refresh device list
+			UpdateTrayTooltip();
+		}
+		break;
+
 	default:
 		if(message == s_uTaskbarRestart)
 			Shell_NotifyIconW(NIM_ADD, &nidApp);

@@ -18,12 +18,9 @@ static CQSESPrefs * pTempPrefs;
 
 WNDPROC OldKeyEditProc, OldCycleEditProc;
 LRESULT CALLBACK NewKeyEditProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
-LRESULT CALLBACK NewCycleEditProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
-void SubClassControl(HWND hWnd, CONTROLPROC NewProc)
+static void SubClassControl(HWND hWnd, CONTROLPROC NewProc)
 {
-	//OldKeyEditProc = (WNDPROC)GetWindowLong(hWnd, GWL_WNDPROC);
-	//SetWindowLong(hWnd, GWL_WNDPROC, (LONG_PTR)NewProc);
     OldKeyEditProc = (WNDPROC)GetWindowLongPtr(hWnd, GWLP_WNDPROC);
     SetWindowLongPtr(hWnd, GWLP_WNDPROC, (LONG_PTR)NewProc);
 }

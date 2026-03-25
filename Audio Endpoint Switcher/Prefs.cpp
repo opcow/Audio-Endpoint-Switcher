@@ -30,12 +30,10 @@ static inline void trim(std::wstring &s) {
 CQSESPrefs::CQSESPrefs(const CQSESPrefs& other) :
 	mMax(other.mMax),
 	mNext(other.mNext),
-	//	mDefault(other.mDefault),
 	mKeyCode(other.mKeyCode),
 	mKeyMods(other.mKeyMods),
 	mCycleKeyString(other.mCycleKeyString),
-	mIsCycleKeyEnabled(other.mIsCycleKeyEnabled),
-	mDevicesHaveChanged(other.mDevicesHaveChanged)
+	mIsCycleKeyEnabled(other.mIsCycleKeyEnabled)
 {
 	mDevices = new DevicePrefs [mMax];
 	for (int i = 0; i < mNext; i++)
@@ -49,12 +47,10 @@ CQSESPrefs& CQSESPrefs::operator=( const CQSESPrefs& source )
 	{
 		mMax = source.mMax;
 		mNext = source.mNext;
-		//	mDefault = source.mDefault;
 		mKeyCode = source.mKeyCode;
 		mKeyMods = source.mKeyMods;
 		mCycleKeyString = source.mCycleKeyString;
 		mIsCycleKeyEnabled = source.mIsCycleKeyEnabled;
-		mDevicesHaveChanged = source.mDevicesHaveChanged;
 
 		delete[] mDevices;
 
@@ -74,8 +70,6 @@ void CQSESPrefs::Add(DevicePrefs *sdi/*, bool def*/)
 	{
 		mDevices[index] = *sdi;
 		mDevices[index].IsPresent = true;
-		//if (def)
-		//	mDefault = index;
 	}
 	else
 	{
@@ -84,8 +78,6 @@ void CQSESPrefs::Add(DevicePrefs *sdi/*, bool def*/)
 
 		mDevices[mNext] = *sdi;
 		mDevices[mNext].IsPresent = true;
-//		if (def)
-//			mDefault = mNext;
 		mNext++;
 	}
 }
@@ -100,8 +92,6 @@ void CQSESPrefs::Update(DevicePrefs *sdi/*, bool def*/)
 		mDevices[index].DeviceID = sdi->DeviceID;
 		mDevices[index].Name = sdi->Name;
 		mDevices[index].IsPresent = true;
-		//if (def)
-		//	mDefault = index;
 	}
 	else
 	{
@@ -110,8 +100,6 @@ void CQSESPrefs::Update(DevicePrefs *sdi/*, bool def*/)
 
 		mDevices[mNext] = *sdi;
 		mDevices[mNext].IsPresent = true;
-		//if (def)
-		//	mDefault = mNext;
 		mNext++;
 	}
 }
@@ -126,18 +114,25 @@ bool CQSESPrefs::SetMax(int max)
 
 wstring& CQSESPrefs::GetHotkeyString(int index, wstring& keyString)
 {
-	if (index > mNext)
+	if (index < 0 || index >= mNext)
+	{
 		keyString.clear();
+		return keyString;
+	}
 
-	return keyString = mDevices[index].HotkeyString;
-};
+	keyString = mDevices[index].HotkeyString;
+	return keyString;
+}
 
 void CQSESPrefs::SetHotkeyCode(int index, UINT code)
 {
-	if (index < mNext) mDevices[index].KeyCode = code;
+	if (index < 0 || index >= mNext)
+		return;
+
+	mDevices[index].KeyCode = code;
 
 	if (mDevices[index].KeyCode == 0 && mDevices[index].KeyMods == 0)
-		mDevices[index].HasHotkey = false;
+		mDevices[index].HasHotkey = false;		mDevices[index].HasHotkey = false;
 }
 
 void CQSESPrefs::SetHotkeyMods(int index, UINT mods)
@@ -456,16 +451,13 @@ bool CQSESPrefs::Load()
 	int i = 0;
 	for (const auto& kv : sections)
 	{
-		//if (count(kv.first.begin(), kv.first.end(), L'{') != 2 || count(kv.first.begin(), kv.first.end(), L'}') != 2)
 		if (!regex_match(kv.first.cbegin(), kv.first.cend(), wMatch, guid_regex))
 			continue;
-		// Fix: was substr(1, length-1), which left the trailing ']' in the DeviceID,
-		// causing Save() to write double-bracketed section headers on the next save.
+		if (i >= mMax)
+			break;
 		mDevices[i].DeviceID = kv.first.substr(1, kv.first.length() - 2);
 		if (kv.second.count(L"name") != 0)
 			mDevices[i].Name = kv.second.at(L"name");
-		// Fix: was comparing c_str() pointer to L"1" (always false), so MOD_ALT was
-		// never set and KeyMods was incorrectly reset to 0 for every device.
 		if (kv.second.count(L"altkey") != 0)
 			mDevices[i].KeyMods = (kv.second.at(L"altkey") == L"1") ? MOD_ALT : 0;
 		if (kv.second.count(L"controlkey") != 0 && kv.second.at(L"controlkey") == L"1")
