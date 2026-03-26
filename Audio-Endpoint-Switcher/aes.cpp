@@ -65,6 +65,7 @@ INT_PTR CALLBACK About(HWND, UINT, WPARAM, LPARAM);
 void DoSettingsDialog(HINSTANCE, HWND hWnd);
 
 void UpdateTrayTooltip();
+void ShowDeviceToast(const wstring &deviceName);
 void InstallNotificationCallback();
 int EnumerateDevices();
 bool SetDefaultAudioPlaybackDevice(LPCWSTR devID);
@@ -472,6 +473,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam,
         if (!GetDeviceIcon(&nidApp.hIcon))
             nidApp.hIcon = hMainIcon;
         UpdateTrayTooltip();
+        {
+            wstring id   = GetDefaultAudioPlaybackDevice();
+            int     idx  = gPrefs.FindByID(id);
+            wstring name = (idx >= 0) ? gPrefs.GetName(idx) : id;
+            ShowDeviceToast(name);
+        }
         return 0;
 
     case WM_USER_NOTIFICATION_ADDED:
@@ -748,6 +755,18 @@ bool SetDefaultAudioPlaybackDevice(LPCWSTR devID)
     if (SUCCEEDED(hr))
         hr = pPolicyConfig->SetDefaultEndpoint(devID, eConsole);
     return SUCCEEDED(hr);
+}
+
+void ShowDeviceToast(const wstring &deviceName)
+{
+    // Reuse nidApp but with NIF_INFO added; the other fields are already set.
+    NOTIFYICONDATA nid = nidApp;
+    nid.uFlags         = NIF_INFO;
+    nid.dwInfoFlags    = NIIF_NOSOUND;
+    nid.uTimeout       = 2000; // ignored on Vista+, hint only
+    wcsncpy_s(nid.szInfoTitle, gszApplicationToolTip, _TRUNCATE);
+    wcsncpy_s(nid.szInfo,      deviceName.c_str(),    _TRUNCATE);
+    Shell_NotifyIconW(NIM_MODIFY, &nid);
 }
 
 void UpdateTrayTooltip()
