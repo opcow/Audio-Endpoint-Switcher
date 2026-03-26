@@ -12,22 +12,30 @@ inline constexpr UINT WM_USER_NOTIFICATION_ADDED   = WM_USER + 3;
 inline constexpr UINT WM_USER_NOTIFICATION_REMOVED = WM_USER + 4;
 inline constexpr UINT WM_USER_NOTIFICATION_CHANGED = WM_USER + 5;
 
+// CMMNotificationClient receives audio endpoint change notifications from the
+// OS and forwards them as window messages.
+//
+// IUnknown is implemented manually with Interlocked ref-counting. This is
+// intentional: the class is a single concrete type, never aggregated, and
+// never needs a COM server or ATL module infrastructure.
 class CMMNotificationClient : public IMMNotificationClient
 {
 public:
-    explicit CMMNotificationClient(HWND hWnd)
-        : mhWnd(hWnd), _cRef(1)
+    explicit CMMNotificationClient(HWND hWnd = nullptr)
+        : mhWnd(hWnd), mRefCount(1)
     {}
+
+    void SetWindow(HWND hWnd) { mhWnd = hWnd; }
 
     // IUnknown
     ULONG STDMETHODCALLTYPE AddRef() override
     {
-        return InterlockedIncrement(&_cRef);
+        return InterlockedIncrement(&mRefCount);
     }
 
     ULONG STDMETHODCALLTYPE Release() override
     {
-        ULONG ref = InterlockedDecrement(&_cRef);
+        ULONG ref = InterlockedDecrement(&mRefCount);
         if (ref == 0)
             delete this;
         return ref;
@@ -88,6 +96,6 @@ public:
     }
 
 private:
-    HWND  mhWnd;
-    LONG  _cRef;
+    HWND mhWnd   = nullptr;
+    LONG mRefCount = 1;
 };

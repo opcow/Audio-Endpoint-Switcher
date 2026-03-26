@@ -37,6 +37,8 @@ static bool ValidIndex(int index, int count) { return index >= 0 && index < coun
 // Collection management
 // ---------------------------------------------------------------------------
 
+// Add: replaces the *entire* DevicePrefs record on collision (hotkeys, flags,
+// everything). Use when importing a fully-populated record.
 void CQSESPrefs::Add(const DevicePrefs& sdi)
 {
     int index = FindByID(sdi.DeviceID);
@@ -55,6 +57,9 @@ void CQSESPrefs::Add(const DevicePrefs& sdi)
     }
 }
 
+// Update: refreshes only DeviceID, Name, and IsPresent on collision, leaving
+// user-configured fields (hotkeys, hidden, excluded) untouched. Use when
+// re-enumerating live audio endpoints.
 void CQSESPrefs::Update(const DevicePrefs& sdi)
 {
     int index = FindByID(sdi.DeviceID);

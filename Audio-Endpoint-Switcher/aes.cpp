@@ -1,18 +1,18 @@
 #include "windows.h"
-#include <string>
-#include <vector>
-#include <memory>
 #include <Mmdeviceapi.h>
 #include <Shlobj.h>
 #include <atlbase.h>
 #include <atlcomcli.h>
+#include <new>
+#include <string>
+#include <vector>
 
-#include "PolicyConfig.h"
-#include "Propidl.h"
 #include "Functiondiscoverykeys_devpkey.h"
-#include "aesIMMNotificationClient.h"
+#include "PolicyConfig.h"
 #include "Prefs.h"
+#include "Propidl.h"
 #include "Settings.h"
+#include "aesIMMNotificationClient.h"
 #include "resource.h"
 
 using namespace std;
@@ -21,15 +21,15 @@ using namespace std;
 // Constants
 // ---------------------------------------------------------------------------
 
-inline constexpr int  MAX_LOADSTRING    = 100;
+inline constexpr int MAX_LOADSTRING = 100;
 inline constexpr UINT WM_USER_SHELLICON = WM_USER + 1;
 
 // Menu item IDs
-inline constexpr UINT ID_MENU_ABOUT    = 100;
-inline constexpr UINT ID_MENU_DEVICES  = 120;
-inline constexpr UINT ID_MENU_EXIT     = 140;
+inline constexpr UINT ID_MENU_ABOUT = 100;
+inline constexpr UINT ID_MENU_DEVICES = 120;
+inline constexpr UINT ID_MENU_EXIT = 140;
 inline constexpr UINT ID_MENU_SETTINGS = 150;
-inline constexpr UINT CYCLE_HOTKEY     = 200;
+inline constexpr UINT CYCLE_HOTKEY = 200;
 
 // Timer ID
 inline constexpr UINT TIMER_AUDIO_REFRESH = 1234;
@@ -41,46 +41,57 @@ inline constexpr UINT gHotkeyFlags = MOD_NOREPEAT;
 // Globals
 // ---------------------------------------------------------------------------
 
-HINSTANCE      hInst;
 NOTIFYICONDATA nidApp;
-HICON          hMainIcon;
-bool           gbDevicesChanged = false;
+HICON hMainIcon;
+bool gbDevicesChanged = false;
 
-WCHAR    gszTitle[MAX_LOADSTRING];
-WCHAR    gszWindowClass[MAX_LOADSTRING];
-WCHAR    gszApplicationToolTip[MAX_LOADSTRING];
+WCHAR gszTitle[MAX_LOADSTRING];
+WCHAR gszWindowClass[MAX_LOADSTRING];
+WCHAR gszApplicationToolTip[MAX_LOADSTRING];
 HINSTANCE ghInstance;
-HWND     gOpenWindow = nullptr;
+HWND gOpenWindow = nullptr;
 
-CQSESPrefs                        gPrefs;
-unique_ptr<CMMNotificationClient> pClient;
+CQSESPrefs gPrefs;
+CMMNotificationClient* pClient = nullptr;
 
 // ---------------------------------------------------------------------------
 // Forward declarations
 // ---------------------------------------------------------------------------
 
-ATOM             MyRegisterClass(HINSTANCE hInstance);
-BOOL             InitInstance(HINSTANCE, int);
+ATOM MyRegisterClass(HINSTANCE hInstance);
+BOOL InitInstance(HINSTANCE, int);
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK About(HWND, UINT, WPARAM, LPARAM);
-void DoSettingsDialog(HINSTANCE hInst, HWND hWnd);
+void DoSettingsDialog(HINSTANCE, HWND hWnd);
 
-void    UpdateTrayTooltip();
-void    InstallNotificationCallback();
-int     EnumerateDevices();
-bool    SetDefaultAudioPlaybackDevice(LPCWSTR devID);
-bool    GetDeviceIcon(HICON* hIcon);
-bool    IsDefaultAudioPlaybackDevice(const wstring& s);
+void UpdateTrayTooltip();
+void InstallNotificationCallback();
+int EnumerateDevices();
+bool SetDefaultAudioPlaybackDevice(LPCWSTR devID);
+bool GetDeviceIcon(HICON *hIcon);
+bool IsDefaultAudioPlaybackDevice(const wstring &s);
 wstring GetDefaultAudioPlaybackDevice();
+
+// ---------------------------------------------------------------------------
+// IMMDeviceEnumerator helper
+// ---------------------------------------------------------------------------
+
+static HRESULT CreateDeviceEnumerator(CComPtr<IMMDeviceEnumerator>& pEnum)
+{
+    return CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr, CLSCTX_ALL,
+                            __uuidof(IMMDeviceEnumerator),
+                            reinterpret_cast<void**>(&pEnum));
+}
 
 // ---------------------------------------------------------------------------
 // Auto-start helpers
 // ---------------------------------------------------------------------------
 
-static void MakeStartupLinkPath(const WCHAR* name, WCHAR* path)
+static void MakeStartupLinkPath(const WCHAR *name, WCHAR *path)
 {
     LPWSTR wstrStartupPath = nullptr;
-    HRESULT hr = SHGetKnownFolderPath(FOLDERID_Startup, 0, nullptr, &wstrStartupPath);
+    HRESULT hr =
+        SHGetKnownFolderPath(FOLDERID_Startup, 0, nullptr, &wstrStartupPath);
     if (SUCCEEDED(hr))
     {
         wcscpy_s(path, MAX_PATH, wstrStartupPath);
@@ -91,22 +102,24 @@ static void MakeStartupLinkPath(const WCHAR* name, WCHAR* path)
     }
     else
     {
-        CoTaskMemFree(wstrStartupPath);
+        // SHGetKnownFolderPath sets the pointer to null on failure; no free needed.
         *path = L'\0';
     }
 }
 
 void EnableAutoStart()
 {
-    IShellLink*   pShellLink   = nullptr;
-    IPersistFile* pPersistFile = nullptr;
+    IShellLink *pShellLink = nullptr;
+    IPersistFile *pPersistFile = nullptr;
 
-    HRESULT hr = CoCreateInstance(CLSID_ShellLink, nullptr, CLSCTX_ALL,
-                                  IID_IShellLink, reinterpret_cast<void**>(&pShellLink));
-    if (FAILED(hr)) return;
+    HRESULT hr =
+        CoCreateInstance(CLSID_ShellLink, nullptr, CLSCTX_ALL, IID_IShellLink,
+                         reinterpret_cast<void **>(&pShellLink));
+    if (FAILED(hr))
+        return;
 
     hr = pShellLink->QueryInterface(IID_IPersistFile,
-                                    reinterpret_cast<void**>(&pPersistFile));
+                                    reinterpret_cast<void **>(&pPersistFile));
     if (SUCCEEDED(hr))
     {
         WCHAR szExeName[MAX_PATH] = {};
@@ -152,20 +165,30 @@ UINT CheckAutoStart()
 static wstring MakeHotkeyString(UINT code, UINT mods)
 {
     WCHAR keyname[256] = {};
-    int   length       = 0;
+    int length = 0;
 
     auto appendKey = [&](UINT vk)
     {
-        if (length > 0) { keyname[length++] = L'+'; keyname[length] = L'\0'; }
+        if (length > 0)
+        {
+            keyname[length++] = L'+';
+            keyname[length] = L'\0';
+        }
         UINT sc = MapVirtualKeyW(vk, MAPVK_VK_TO_VSC);
-        length += GetKeyNameTextW(static_cast<LONG>(sc << 16), keyname + length, 255 - length);
+        length += GetKeyNameTextW(static_cast<LONG>(sc << 16), keyname + length,
+                                  255 - length);
     };
 
-    if (mods & MOD_SHIFT)   appendKey(VK_SHIFT);
-    if (mods & MOD_CONTROL) appendKey(VK_CONTROL);
-    if (mods & MOD_ALT)     appendKey(VK_MENU);
-    if (mods & MOD_WIN)     appendKey(VK_LWIN);
-    if (code != 0)          appendKey(code);
+    if (mods & MOD_SHIFT)
+        appendKey(VK_SHIFT);
+    if (mods & MOD_CONTROL)
+        appendKey(VK_CONTROL);
+    if (mods & MOD_ALT)
+        appendKey(VK_MENU);
+    if (mods & MOD_WIN)
+        appendKey(VK_LWIN);
+    if (code != 0)
+        appendKey(code);
 
     return wstring(L" (") + keyname + L")";
 }
@@ -174,12 +197,13 @@ static wstring MakeHotkeyString(UINT code, UINT mods)
 // Hotkey registration
 // ---------------------------------------------------------------------------
 
-static void HandleHotkeyError(const wstring& label)
+static void HandleHotkeyError(const wstring &label)
 {
     WCHAR errorStr[512] = {};
     wstring msg = label + L"\n\n";
     FormatMessageW(FORMAT_MESSAGE_FROM_SYSTEM, nullptr, GetLastError(),
-                   MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), errorStr, 511, nullptr);
+                   MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), errorStr, 511,
+                   nullptr);
     msg += errorStr;
     MessageBoxW(nullptr, msg.c_str(), L"Hotkey Error", MB_OK);
 }
@@ -201,8 +225,7 @@ static void InstallHotkeys(HWND hWnd)
         if (!gPrefs.GetIsPresent(i) || !gPrefs.GetHotkeyEnabled(i))
             continue;
         UnregisterHotKey(hWnd, i);
-        if (!RegisterHotKey(hWnd, i,
-                            gPrefs.GetHotkeyMods(i) | gHotkeyFlags,
+        if (!RegisterHotKey(hWnd, i, gPrefs.GetHotkeyMods(i) | gHotkeyFlags,
                             gPrefs.GetHotkeyCode(i)))
             HandleHotkeyError(gPrefs.GetName(i));
     }
@@ -228,9 +251,8 @@ static void CycleDevices()
     for (int i = 0; i < count; ++i)
     {
         int j = (start + i) % count;
-        if (!gPrefs.GetExcludeFromCycle(j) &&
-            !gPrefs.GetIsHidden(j) &&
-             gPrefs.GetIsPresent(j))
+        if (!gPrefs.GetExcludeFromCycle(j) && !gPrefs.GetIsHidden(j) &&
+            gPrefs.GetIsPresent(j))
         {
             SetDefaultAudioPlaybackDevice(gPrefs.GetID(j).c_str());
             break;
@@ -274,7 +296,7 @@ static bool AlreadyRunning()
 
 static wstring BuildVersionString(HINSTANCE hInstance)
 {
-    WCHAR appPathName[MAX_PATH]       = {};
+    WCHAR appPathName[MAX_PATH] = {};
     WCHAR appName[MAX_LOADSTRING + 1] = {};
 
     GetModuleFileNameW(hInstance, appPathName, MAX_PATH);
@@ -286,10 +308,10 @@ static wstring BuildVersionString(HINSTANCE hInstance)
     if (!GetFileVersionInfoW(appPathName, 0, verSize, buf.data()))
         return {};
 
-    VS_FIXEDFILEINFO* pInfo   = nullptr;
-    UINT              infoLen = 0;
-    if (!VerQueryValueW(buf.data(), L"\\",
-                        reinterpret_cast<void**>(&pInfo), &infoLen))
+    VS_FIXEDFILEINFO *pInfo = nullptr;
+    UINT infoLen = 0;
+    if (!VerQueryValueW(buf.data(), L"\\", reinterpret_cast<void **>(&pInfo),
+                        &infoLen))
         return {};
 
     LoadStringW(hInstance, IDS_APP_TITLE, appName, MAX_LOADSTRING);
@@ -315,8 +337,7 @@ static wstring BuildVersionString(HINSTANCE hInstance)
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
                       _In_opt_ HINSTANCE /*hPrevInstance*/,
-                      _In_ LPWSTR      /*lpCmdLine*/,
-                      _In_ int         nCmdShow)
+                      _In_ LPWSTR /*lpCmdLine*/, _In_ int nCmdShow)
 {
     if (AlreadyRunning())
     {
@@ -326,12 +347,13 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
         return 0;
     }
 
-    LoadStringW(hInstance, IDS_APP_TITLE,  gszTitle,              MAX_LOADSTRING);
-    LoadStringW(hInstance, IDC_AES,        gszWindowClass,        MAX_LOADSTRING);
+    LoadStringW(hInstance, IDS_APP_TITLE, gszTitle, MAX_LOADSTRING);
+    LoadStringW(hInstance, IDC_AES, gszWindowClass, MAX_LOADSTRING);
     LoadStringW(hInstance, IDS_APPTOOLTIP, gszApplicationToolTip, MAX_LOADSTRING);
 
-    ghInstance = hInstance;
     MyRegisterClass(hInstance);
+
+    ghInstance = hInstance;
 
     HRESULT hrCom = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
     if (FAILED(hrCom))
@@ -378,36 +400,35 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
 ATOM MyRegisterClass(HINSTANCE hInstance)
 {
-    WNDCLASSEXW wcex   = {};
-    wcex.cbSize        = sizeof(WNDCLASSEXW);
-    wcex.style         = CS_HREDRAW | CS_VREDRAW;
-    wcex.lpfnWndProc   = WndProc;
-    wcex.hInstance     = hInstance;
-    wcex.hIcon         = LoadIconW(hInstance, MAKEINTRESOURCEW(IDI_ICON1));
-    wcex.hCursor       = LoadCursor(nullptr, IDC_ARROW);
+    WNDCLASSEXW wcex = {};
+    wcex.cbSize = sizeof(WNDCLASSEXW);
+    wcex.style = CS_HREDRAW | CS_VREDRAW;
+    wcex.lpfnWndProc = WndProc;
+    wcex.hInstance = hInstance;
+    wcex.hIcon = LoadIconW(hInstance, MAKEINTRESOURCEW(IDI_ICON1));
+    wcex.hCursor = LoadCursor(nullptr, IDC_ARROW);
     wcex.hbrBackground = reinterpret_cast<HBRUSH>(COLOR_WINDOW + 1);
-    wcex.lpszMenuName  = MAKEINTRESOURCEW(IDC_AES);
+    wcex.lpszMenuName = MAKEINTRESOURCEW(IDC_AES);
     wcex.lpszClassName = gszWindowClass;
-    wcex.hIconSm       = LoadIconW(hInstance, MAKEINTRESOURCEW(IDI_SMALL));
+    wcex.hIconSm = LoadIconW(hInstance, MAKEINTRESOURCEW(IDI_SMALL));
     return RegisterClassExW(&wcex);
 }
 
 BOOL InitInstance(HINSTANCE hInstance, int /*nCmdShow*/)
 {
-    hInst = hInstance;
-
     HWND hWnd = CreateWindowW(gszWindowClass, gszTitle, WS_OVERLAPPEDWINDOW,
-                              CW_USEDEFAULT, 0, CW_USEDEFAULT, 0,
-                              nullptr, nullptr, hInstance, nullptr);
-    if (!hWnd) return FALSE;
+                              CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, nullptr,
+                              nullptr, hInstance, nullptr);
+    if (!hWnd)
+        return FALSE;
 
-    hMainIcon = LoadIconW(hInstance, MAKEINTRESOURCEW(IDI_SMALL));
+    hMainIcon = LoadIconW(ghInstance, MAKEINTRESOURCEW(IDI_SMALL));
 
-    nidApp                  = {};
-    nidApp.cbSize           = sizeof(NOTIFYICONDATA);
-    nidApp.hWnd             = hWnd;
-    nidApp.uID              = IDI_SMALL;
-    nidApp.uFlags           = NIF_ICON | NIF_MESSAGE | NIF_TIP;
+    nidApp = {};
+    nidApp.cbSize = sizeof(NOTIFYICONDATA);
+    nidApp.hWnd = hWnd;
+    nidApp.uID = IDI_SMALL;
+    nidApp.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
     nidApp.uCallbackMessage = WM_USER_SHELLICON;
     wcsncpy_s(nidApp.szTip, 64, gszApplicationToolTip, _TRUNCATE);
     if (!GetDeviceIcon(&nidApp.hIcon))
@@ -421,7 +442,8 @@ BOOL InitInstance(HINSTANCE hInstance, int /*nCmdShow*/)
 // Window procedure
 // ---------------------------------------------------------------------------
 
-LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam,
+                         LPARAM lParam)
 {
     static UINT s_uTaskbarRestart = 0;
 
@@ -431,12 +453,16 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         if (wParam == CYCLE_HOTKEY)
             CycleDevices();
         else
-            SetDefaultAudioPlaybackDevice(gPrefs.GetID(static_cast<int>(wParam)).c_str());
+        {
+            int devIdx = static_cast<int>(wParam);
+            if (devIdx >= 0 && devIdx < gPrefs.GetCount())
+                SetDefaultAudioPlaybackDevice(gPrefs.GetID(devIdx).c_str());
+        }
         return 0;
 
     case WM_CREATE:
         s_uTaskbarRestart = RegisterWindowMessageW(L"TaskbarCreated");
-        pClient = make_unique<CMMNotificationClient>(hWnd);
+        pClient = new (std::nothrow) CMMNotificationClient(hWnd);
         InstallNotificationCallback();
         InstallHotkeys(hWnd);
         return 0;
@@ -477,7 +503,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             HMENU hPopMenu = CreatePopupMenu();
             InsertMenuW(hPopMenu, 0xFFFFFFFF, MF_BYPOSITION | MF_STRING,
                         ID_MENU_ABOUT, L"About...");
-            InsertMenuW(hPopMenu, 0xFFFFFFFF, MF_SEPARATOR | MF_BYPOSITION, 0, nullptr);
+            InsertMenuW(hPopMenu, 0xFFFFFFFF, MF_SEPARATOR | MF_BYPOSITION, 0,
+                        nullptr);
 
             int count = gPrefs.GetCount();
             for (int i = 0; i < count; ++i)
@@ -491,21 +518,23 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 UINT flags = MF_BYPOSITION | MF_STRING;
                 if (IsDefaultAudioPlaybackDevice(gPrefs.GetID(i)))
                     flags |= MF_CHECKED;
-                InsertMenuW(hPopMenu, 0xFFFFFFFF, flags,
-                            ID_MENU_DEVICES + i, menuStr.c_str());
+                InsertMenuW(hPopMenu, 0xFFFFFFFF, flags, ID_MENU_DEVICES + i,
+                            menuStr.c_str());
             }
 
-            InsertMenuW(hPopMenu, 0xFFFFFFFF, MF_SEPARATOR | MF_BYPOSITION, 0, nullptr);
+            InsertMenuW(hPopMenu, 0xFFFFFFFF, MF_SEPARATOR | MF_BYPOSITION, 0,
+                        nullptr);
             InsertMenuW(hPopMenu, 0xFFFFFFFF, MF_BYPOSITION | MF_STRING,
                         ID_MENU_SETTINGS, L"Settings...");
-            InsertMenuW(hPopMenu, 0xFFFFFFFF, MF_SEPARATOR | MF_BYPOSITION, 0, nullptr);
-            InsertMenuW(hPopMenu, 0xFFFFFFFF, MF_BYPOSITION | MF_STRING,
-                        ID_MENU_EXIT, L"Quit");
+            InsertMenuW(hPopMenu, 0xFFFFFFFF, MF_SEPARATOR | MF_BYPOSITION, 0,
+                        nullptr);
+            InsertMenuW(hPopMenu, 0xFFFFFFFF, MF_BYPOSITION | MF_STRING, ID_MENU_EXIT,
+                        L"Quit");
 
             SetForegroundWindow(hWnd);
             TrackPopupMenuEx(hPopMenu,
-                             TPM_LEFTALIGN | TPM_LEFTBUTTON | TPM_BOTTOMALIGN,
-                             pt.x, pt.y, hWnd, nullptr);
+                             TPM_LEFTALIGN | TPM_LEFTBUTTON | TPM_BOTTOMALIGN, pt.x,
+                             pt.y, hWnd, nullptr);
             DestroyMenu(hPopMenu);
             return 0;
         }
@@ -518,7 +547,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         switch (wmId)
         {
         case ID_MENU_ABOUT:
-            DialogBoxW(hInst, MAKEINTRESOURCEW(IDD_DIALOG_ABOUT), hWnd, About);
+            DialogBoxW(ghInstance, MAKEINTRESOURCEW(IDD_DIALOG_ABOUT), hWnd, About);
             return 0;
 
         case ID_MENU_EXIT:
@@ -528,14 +557,14 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
         case ID_MENU_SETTINGS:
             RemoveHotkeys(hWnd);
-            DoSettingsDialog(hInst, hWnd);
+            DoSettingsDialog(ghInstance, hWnd);
             EnumerateDevices();
             InstallHotkeys(hWnd);
             return 0;
 
         default:
             if (wmId >= static_cast<int>(ID_MENU_DEVICES) &&
-                wmId <  static_cast<int>(ID_MENU_DEVICES + cMaxDevices))
+                wmId < static_cast<int>(ID_MENU_DEVICES + cMaxDevices))
             {
                 int devIdx = wmId - static_cast<int>(ID_MENU_DEVICES);
                 SetDefaultAudioPlaybackDevice(gPrefs.GetID(devIdx).c_str());
@@ -546,6 +575,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     }
 
     case WM_DESTROY:
+        if (pClient)
+        {
+            pClient->Release(); // matches the implicit AddRef of the initial refcount=1
+            pClient = nullptr;
+        }
         PostQuitMessage(0);
         return 0;
 
@@ -575,12 +609,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 // Settings dialog wrapper
 // ---------------------------------------------------------------------------
 
-void DoSettingsDialog(HINSTANCE hInst, HWND hWnd)
+void DoSettingsDialog(HINSTANCE /*hInst*/, HWND hWnd)
 {
     CQSESPrefs temp = gPrefs;
-    INT_PTR rc = DialogBoxParamW(hInst, MAKEINTRESOURCEW(IDD_DIALOG_SETTINGS),
-                                  hWnd, SettingsDialogProc,
-                                  reinterpret_cast<LPARAM>(&temp));
+    INT_PTR rc =
+        DialogBoxParamW(ghInstance, MAKEINTRESOURCEW(IDD_DIALOG_SETTINGS), hWnd,
+                        SettingsDialogProc, reinterpret_cast<LPARAM>(&temp));
     if (rc == IDOK)
     {
         gPrefs = temp;
@@ -592,14 +626,15 @@ void DoSettingsDialog(HINSTANCE hInst, HWND hWnd)
 // About dialog
 // ---------------------------------------------------------------------------
 
-INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM /*lParam*/)
+INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam,
+                       LPARAM /*lParam*/)
 {
     switch (message)
     {
     case WM_INITDIALOG:
         gOpenWindow = hDlg;
         SetWindowTextW(GetDlgItem(hDlg, IDC_STATIC_APP),
-                       BuildVersionString(ghInstance).c_str());
+                       BuildVersionString(ghInstance).c_str());  // ghInstance == hInst, consolidated
         return TRUE;
 
     case WM_COMMAND:
@@ -621,20 +656,19 @@ INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM /*lParam*/
 // Device icon extraction
 // ---------------------------------------------------------------------------
 
-bool GetDeviceIcon(HICON* hIcon)
+bool GetDeviceIcon(HICON *hIcon)
 {
-    if (!hIcon) return false;
+    if (!hIcon)
+        return false;
     *hIcon = nullptr;
 
     CComPtr<IMMDeviceEnumerator> pEnum;
-    CComPtr<IMMDevice>           pDevice;
-    CComPtr<IPropertyStore>      pStore;
+    CComPtr<IMMDevice> pDevice;
+    CComPtr<IPropertyStore> pStore;
     PROPVARIANT pv;
     PropVariantInit(&pv);
 
-    if (FAILED(CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr, CLSCTX_ALL,
-                                __uuidof(IMMDeviceEnumerator),
-                                reinterpret_cast<void**>(&pEnum))))
+    if (FAILED(CreateDeviceEnumerator(pEnum)))
         return false;
 
     if (FAILED(pEnum->GetDefaultAudioEndpoint(eRender, eConsole, &pDevice)))
@@ -654,7 +688,9 @@ bool GetDeviceIcon(HICON* hIcon)
         return false;
 
     wstring exePath = iconPath.substr(0, commaPos);
-    int     nIconID = _wtoi(iconPath.c_str() + commaPos + 1);
+    // Icon index is typically negative (e.g. "shell32.dll,-14"); _wtoi and
+    // ExtractIconExW both handle the sign correctly.
+    int nIconID = _wtoi(iconPath.c_str() + commaPos + 1);
 
     HICON hLarge = nullptr;
     ExtractIconExW(exePath.c_str(), nIconID, &hLarge, nullptr, 1);
@@ -664,29 +700,30 @@ bool GetDeviceIcon(HICON* hIcon)
     int cx = GetSystemMetrics(SM_CXSMICON);
     int cy = GetSystemMetrics(SM_CYSMICON);
 
-    HDC hdc    = GetDC(nullptr);
+    HDC hdc = GetDC(nullptr);
     HDC hdcMem = CreateCompatibleDC(hdc);
 
-    BITMAPINFO bmi              = {};
-    bmi.bmiHeader.biSize        = sizeof(BITMAPINFOHEADER);
-    bmi.bmiHeader.biWidth       = cx;
-    bmi.bmiHeader.biHeight      = -cy;
-    bmi.bmiHeader.biPlanes      = 1;
-    bmi.bmiHeader.biBitCount    = 32;
+    BITMAPINFO bmi = {};
+    bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+    bmi.bmiHeader.biWidth = cx;
+    bmi.bmiHeader.biHeight = -cy;
+    bmi.bmiHeader.biPlanes = 1;
+    bmi.bmiHeader.biBitCount = 32;
     bmi.bmiHeader.biCompression = BI_RGB;
 
-    void*   pvBits = nullptr;
-    HBITMAP hDIB   = CreateDIBSection(hdc, &bmi, DIB_RGB_COLORS, &pvBits, nullptr, 0);
+    void *pvBits = nullptr;
+    HBITMAP hDIB =
+        CreateDIBSection(hdc, &bmi, DIB_RGB_COLORS, &pvBits, nullptr, 0);
     if (hDIB)
     {
         HBITMAP hOld = static_cast<HBITMAP>(SelectObject(hdcMem, hDIB));
         DrawIconEx(hdcMem, 0, 0, hLarge, cx, cy, 0, nullptr, DI_NORMAL);
 
         ICONINFO ii = {};
-        ii.fIcon    = TRUE;
+        ii.fIcon = TRUE;
         ii.hbmColor = hDIB;
-        ii.hbmMask  = CreateBitmap(cx, cy, 1, 1, nullptr);
-        *hIcon      = CreateIconIndirect(&ii);
+        ii.hbmMask = CreateBitmap(cx, cy, 1, 1, nullptr);
+        *hIcon = CreateIconIndirect(&ii);
         DeleteObject(ii.hbmMask);
 
         SelectObject(hdcMem, hOld);
@@ -715,9 +752,10 @@ bool SetDefaultAudioPlaybackDevice(LPCWSTR devID)
 
 void UpdateTrayTooltip()
 {
-    wstring id   = GetDefaultAudioPlaybackDevice();
-    int     idx  = gPrefs.FindByID(id);
-    wstring name = (idx >= 0) ? gPrefs.GetName(idx) : wstring(gszApplicationToolTip);
+    wstring id = GetDefaultAudioPlaybackDevice();
+    int idx = gPrefs.FindByID(id);
+    wstring name =
+        (idx >= 0) ? gPrefs.GetName(idx) : wstring(gszApplicationToolTip);
     wcsncpy_s(nidApp.szTip, 64, name.c_str(), _TRUNCATE);
     Shell_NotifyIconW(NIM_MODIFY, &nidApp);
 }
@@ -725,22 +763,17 @@ void UpdateTrayTooltip()
 void InstallNotificationCallback()
 {
     CComPtr<IMMDeviceEnumerator> pEnum;
-    HRESULT hr = CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr, CLSCTX_ALL,
-                                  __uuidof(IMMDeviceEnumerator),
-                                  reinterpret_cast<void**>(&pEnum));
-    if (SUCCEEDED(hr))
-        pEnum->RegisterEndpointNotificationCallback(pClient.get());
+    if (pClient && SUCCEEDED(CreateDeviceEnumerator(pEnum)))
+        pEnum->RegisterEndpointNotificationCallback(pClient);
 }
 
 wstring GetDefaultAudioPlaybackDevice()
 {
     CComPtr<IMMDeviceEnumerator> pEnum;
-    CComPtr<IMMDevice>           pDevice;
+    CComPtr<IMMDevice> pDevice;
     LPWSTR pwszID = nullptr;
 
-    if (FAILED(CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr, CLSCTX_ALL,
-                                __uuidof(IMMDeviceEnumerator),
-                                reinterpret_cast<void**>(&pEnum))))
+    if (FAILED(CreateDeviceEnumerator(pEnum)))
         return {};
 
     if (FAILED(pEnum->GetDefaultAudioEndpoint(eRender, eConsole, &pDevice)))
@@ -754,7 +787,7 @@ wstring GetDefaultAudioPlaybackDevice()
     return id;
 }
 
-bool IsDefaultAudioPlaybackDevice(const wstring& s)
+bool IsDefaultAudioPlaybackDevice(const wstring &s)
 {
     return GetDefaultAudioPlaybackDevice() == s;
 }
@@ -768,13 +801,11 @@ int EnumerateDevices()
     CComPtr<IMMDeviceEnumerator> pEnum;
     CComPtr<IMMDeviceCollection> pDevices;
 
-    HRESULT hr = CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr, CLSCTX_ALL,
-                                  __uuidof(IMMDeviceEnumerator),
-                                  reinterpret_cast<void**>(&pEnum));
-    if (FAILED(hr)) return -1;
+    if (FAILED(CreateDeviceEnumerator(pEnum)))
+        return -1;
 
-    hr = pEnum->EnumAudioEndpoints(eRender, DEVICE_STATE_ACTIVE, &pDevices);
-    if (FAILED(hr)) return -1;
+    if (FAILED(pEnum->EnumAudioEndpoints(eRender, DEVICE_STATE_ACTIVE, &pDevices)))
+        return -1;
 
     UINT count = 0;
     pDevices->GetCount(&count);
@@ -785,21 +816,26 @@ int EnumerateDevices()
 
     for (UINT i = 0; i < count; ++i)
     {
-        CComPtr<IMMDevice>      pDevice;
+        CComPtr<IMMDevice> pDevice;
         CComPtr<IPropertyStore> pStore;
-        PROPVARIANT pv;
-        PropVariantInit(&pv);
 
-        if (FAILED(pDevices->Item(i, &pDevice))) continue;
+        if (FAILED(pDevices->Item(i, &pDevice)))
+            continue;
 
         LPWSTR wstrID = nullptr;
-        if (FAILED(pDevice->GetId(&wstrID))) continue;
+        if (FAILED(pDevice->GetId(&wstrID)))
+            continue;
 
         DevicePrefs dev;
         dev.DeviceID = wstrID;
         CoTaskMemFree(wstrID);
 
-        if (FAILED(pDevice->OpenPropertyStore(STGM_READ, &pStore))) continue;
+        if (FAILED(pDevice->OpenPropertyStore(STGM_READ, &pStore)))
+            continue;
+
+        // PropVariantInit/Clear scoped tightly around the single GetValue call.
+        PROPVARIANT pv;
+        PropVariantInit(&pv);
         if (FAILED(pStore->GetValue(PKEY_Device_FriendlyName, &pv)))
         {
             PropVariantClear(&pv);

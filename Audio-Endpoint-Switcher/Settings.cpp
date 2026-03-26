@@ -10,6 +10,9 @@ extern void  EnableAutoStart();
 extern void  DisableAutoStart();
 extern UINT  CheckAutoStart();
 
+// pTempPrefs points at the CQSESPrefs owned by DoSettingsDialog for the
+// lifetime of the modal dialog. It is set in WM_INITDIALOG and cleared in
+// WM_DESTROY; no helper should be called before WM_INITDIALOG fires.
 static CQSESPrefs* pTempPrefs = nullptr;
 
 // ---------------------------------------------------------------------------
@@ -96,8 +99,10 @@ static void InitComboBox(HWND hDlg)
     ComboBox_ResetContent(hCombo);
     for (int i = 0; i < count; ++i)
     {
+        // Use continue (not break) so a non-present device in the middle of the
+        // list never silently truncates the combo box.
         if (!pTempPrefs->GetIsPresent(i))
-            break;
+            continue;
         ComboBox_AddString(hCombo, pTempPrefs->GetName(i).c_str());
     }
     ComboBox_SetCurSel(hCombo, 0);
@@ -225,33 +230,15 @@ static void HandleHotkeyModClick(HWND hDlg, UINT param)
 
 INT_PTR CALLBACK SettingsDialogProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
+    // bBusy suppresses re-entrant WM_COMMAND notifications that fire while we
+    // are programmatically updating dialog controls. It intentionally guards
+    // only WM_COMMAND so that other messages (e.g. WM_DESTROY) are never lost.
     static bool bBusy = false;
-    if (bBusy) return TRUE;
 
     switch (uMsg)
     {
-    case WM_INITDIALOG:
-    {
-        bBusy      = true;
-        gOpenWindow = hDlg;
-        pTempPrefs  = reinterpret_cast<CQSESPrefs*>(lParam);
-
-        // Subclass the two key-capture edit boxes with separate procs.
-        OldKeyEditProc   = reinterpret_cast<WNDPROC>(
-            SetWindowLongPtrW(GetDlgItem(hDlg, IDC_EDIT_KEY),  GWLP_WNDPROC,
-                              reinterpret_cast<LONG_PTR>(NewKeyEditProc)));
-        OldCycleEditProc = reinterpret_cast<WNDPROC>(
-            SetWindowLongPtrW(GetDlgItem(hDlg, IDC_EDIT_KEY2), GWLP_WNDPROC,
-                              reinterpret_cast<LONG_PTR>(NewCycleEditProc)));
-
-        InitComboBox(hDlg);
-        SetDialogItems(hDlg);
-        CheckDlgButton(hDlg, IDC_CHECK_AUTOSTART, CheckAutoStart());
-        bBusy = false;
-        return TRUE;
-    }
-
     case WM_COMMAND:
+        if (bBusy) return TRUE;
         switch (LOWORD(wParam))
         {
         case IDC_CHECK_AUTOSTART:
@@ -359,6 +346,27 @@ INT_PTR CALLBACK SettingsDialogProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM 
             break;
         }
         break;
+
+    case WM_INITDIALOG:
+    {
+        bBusy      = true;
+        gOpenWindow = hDlg;
+        pTempPrefs  = reinterpret_cast<CQSESPrefs*>(lParam);
+
+        // Subclass the two key-capture edit boxes with separate procs.
+        OldKeyEditProc   = reinterpret_cast<WNDPROC>(
+            SetWindowLongPtrW(GetDlgItem(hDlg, IDC_EDIT_KEY),  GWLP_WNDPROC,
+                              reinterpret_cast<LONG_PTR>(NewKeyEditProc)));
+        OldCycleEditProc = reinterpret_cast<WNDPROC>(
+            SetWindowLongPtrW(GetDlgItem(hDlg, IDC_EDIT_KEY2), GWLP_WNDPROC,
+                              reinterpret_cast<LONG_PTR>(NewCycleEditProc)));
+
+        InitComboBox(hDlg);
+        SetDialogItems(hDlg);
+        CheckDlgButton(hDlg, IDC_CHECK_AUTOSTART, CheckAutoStart());
+        bBusy = false;
+        return TRUE;
+    }
 
     case WM_DESTROY:
         gOpenWindow = nullptr;
