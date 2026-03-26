@@ -764,7 +764,6 @@ void ShowDeviceToast(const wstring &deviceName)
     nid.uFlags         = NIF_INFO;
     nid.dwInfoFlags    = NIIF_NOSOUND;
     nid.uTimeout       = 2000; // ignored on Vista+, hint only
-    wcsncpy_s(nid.szInfoTitle, gszApplicationToolTip, _TRUNCATE);
     wcsncpy_s(nid.szInfo,      deviceName.c_str(),    _TRUNCATE);
     Shell_NotifyIconW(NIM_MODIFY, &nid);
 }
