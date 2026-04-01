@@ -33,6 +33,7 @@
 #define IDC_CHECK_HIDE                  1029
 #define IDC_CHECK1                      1030
 #define IDC_CHECK_AUTOSTART             1030
+#define IDC_EDIT_DEVICE_NAME            1032
 #define ID_AES_ABOUT                    40001
 
 // Next default values for new objects
@@ -41,7 +42,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        122
 #define _APS_NEXT_COMMAND_VALUE         40002
-#define _APS_NEXT_CONTROL_VALUE         1031
+#define _APS_NEXT_CONTROL_VALUE         1033
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

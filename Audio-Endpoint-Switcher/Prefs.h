@@ -11,7 +11,8 @@ struct DevicePrefs
 {
     UINT        KeyMods               = 0;
     UINT        KeyCode               = 0;
-    std::wstring Name;
+    std::wstring Name;           // System-provided friendly name (from Windows)
+    std::wstring CustomName;     // User-specified display name (overrides Name when non-empty)
     std::wstring DeviceID;
     std::wstring HotkeyString;
     bool        HasHotkey             = false;
@@ -67,9 +68,14 @@ public:
     void Swap(int d1, int d2);
     void Sort();
 
+    // Per-device custom name
+    void         SetCustomName(int index, const std::wstring& name);
+    std::wstring GetCustomName(int index) const;
+
     // Lookup
     int          FindByID(const std::wstring& id) const;
-    std::wstring GetName(int index) const;
+    std::wstring GetName(int index) const;        // returns system name (from Windows)
+    std::wstring GetDisplayName(int index) const; // returns CustomName if set, else Name
     std::wstring GetID(int index) const;
 
     // Lifecycle

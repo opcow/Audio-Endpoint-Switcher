@@ -1,5 +1,6 @@
 #include <Windowsx.h>
 #include <string>
+#include <vector>
 #include "resource.h"
 #include "Settings.h"
 
@@ -91,11 +92,15 @@ static LRESULT CALLBACK NewCycleEditProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
 // Dialog helpers
 // ---------------------------------------------------------------------------
 
+// Map from combo-box index to mDevices index (only present devices are shown).
+static vector<int> gComboIndexToDevIndex;
+
 static void InitComboBox(HWND hDlg)
 {
-    const int count   = pTempPrefs->GetCount();
-    HWND      hCombo  = GetDlgItem(hDlg, IDC_COMBO1);
+    const int count  = pTempPrefs->GetCount();
+    HWND      hCombo = GetDlgItem(hDlg, IDC_COMBO1);
 
+    gComboIndexToDevIndex.clear();
     ComboBox_ResetContent(hCombo);
     for (int i = 0; i < count; ++i)
     {
@@ -103,14 +108,24 @@ static void InitComboBox(HWND hDlg)
         // list never silently truncates the combo box.
         if (!pTempPrefs->GetIsPresent(i))
             continue;
-        ComboBox_AddString(hCombo, pTempPrefs->GetName(i).c_str());
+        ComboBox_AddString(hCombo, pTempPrefs->GetDisplayName(i).c_str());
+        gComboIndexToDevIndex.push_back(i);
     }
     ComboBox_SetCurSel(hCombo, 0);
 }
 
+// Returns the mDevices index for the currently selected combo item, or -1.
+static int GetSelectedDevIndex(HWND hDlg)
+{
+    int combo = ComboBox_GetCurSel(GetDlgItem(hDlg, IDC_COMBO1));
+    if (combo < 0 || combo >= static_cast<int>(gComboIndexToDevIndex.size()))
+        return -1;
+    return gComboIndexToDevIndex[combo];
+}
+
 static void ToggleHotkey(HWND hDlg)
 {
-    int device = ComboBox_GetCurSel(GetDlgItem(hDlg, IDC_COMBO1));
+    int device = GetSelectedDevIndex(hDlg);
     if (device < 0) return;
 
     bool enabled = IsDlgButtonChecked(hDlg, IDC_CHECK_ENABLE_HOTKEY) == BST_CHECKED;
@@ -135,8 +150,11 @@ static void ToggleCycleKey(HWND hDlg)
 
 static void SetDialogItems(HWND hDlg)
 {
-    int device = ComboBox_GetCurSel(GetDlgItem(hDlg, IDC_COMBO1));
+    int device = GetSelectedDevIndex(hDlg);
     if (device < 0) return;
+
+    // Custom name edit box: show the user's custom name (may be empty)
+    SetDlgItemTextW(hDlg, IDC_EDIT_DEVICE_NAME, pTempPrefs->GetCustomName(device).c_str());
 
     // Per-device hotkey controls
     UINT mods = pTempPrefs->GetHotkeyMods(device);
@@ -179,6 +197,23 @@ static void SetDialogItems(HWND hDlg)
     ToggleCycleKey(hDlg);
 }
 
+static void UpdateComboLabel(HWND hDlg)
+{
+    // Refresh the text of the currently selected combo-box item to reflect
+    // any custom name the user has just typed.
+    int combo  = ComboBox_GetCurSel(GetDlgItem(hDlg, IDC_COMBO1));
+    int device = GetSelectedDevIndex(hDlg);
+    if (combo < 0 || device < 0) return;
+
+    // ComboBox_DeleteString / InsertString would reset selection; instead
+    // manipulate CB_DELETESTRING + CB_INSERTSTRING at the same position.
+    HWND hCombo = GetDlgItem(hDlg, IDC_COMBO1);
+    SendMessageW(hCombo, CB_DELETESTRING, combo, 0);
+    SendMessageW(hCombo, CB_INSERTSTRING, combo,
+                 reinterpret_cast<LPARAM>(pTempPrefs->GetDisplayName(device).c_str()));
+    ComboBox_SetCurSel(hCombo, combo);
+}
+
 static void HandleCycleKeyModClick(HWND hDlg, UINT param)
 {
     UINT mods = pTempPrefs->GetCycleKeyMods();
@@ -198,7 +233,7 @@ static void HandleCycleKeyModClick(HWND hDlg, UINT param)
 
 static void HandleHotkeyModClick(HWND hDlg, UINT param)
 {
-    int device = ComboBox_GetCurSel(GetDlgItem(hDlg, IDC_COMBO1));
+    int device = GetSelectedDevIndex(hDlg);
     if (device < 0) return;
 
     UINT mods = pTempPrefs->GetHotkeyMods(device);
@@ -263,7 +298,7 @@ INT_PTR CALLBACK SettingsDialogProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM 
 
         case IDC_BUTTON_DELETE:
             bBusy = true;
-            pTempPrefs->Clear(ComboBox_GetCurSel(GetDlgItem(hDlg, IDC_COMBO1)));
+            pTempPrefs->Clear(GetSelectedDevIndex(hDlg));
             SetDialogItems(hDlg);
             bBusy = false;
             return TRUE;
@@ -284,16 +319,32 @@ INT_PTR CALLBACK SettingsDialogProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM 
             bBusy = false;
             return TRUE;
 
+        case IDC_EDIT_DEVICE_NAME:
+            if (HIWORD(wParam) == EN_CHANGE)
+            {
+                bBusy = true;
+                WCHAR customName[256] = {};
+                GetDlgItemTextW(hDlg, IDC_EDIT_DEVICE_NAME, customName, 255);
+                int device = GetSelectedDevIndex(hDlg);
+                if (device >= 0)
+                {
+                    pTempPrefs->SetCustomName(device, customName);
+                    UpdateComboLabel(hDlg);
+                }
+                bBusy = false;
+            }
+            return TRUE;
+
         case IDC_CHECK_CYCLE:
             pTempPrefs->SetExcludeFromCycle(
-                ComboBox_GetCurSel(GetDlgItem(hDlg, IDC_COMBO1)),
+                GetSelectedDevIndex(hDlg),
                 IsDlgButtonChecked(hDlg, IDC_CHECK_CYCLE) == BST_CHECKED);
             return TRUE;
 
         case IDC_CHECK_HIDE:
         {
             bBusy = true;
-            UINT device  = static_cast<UINT>(ComboBox_GetCurSel(GetDlgItem(hDlg, IDC_COMBO1)));
+            int device  = GetSelectedDevIndex(hDlg);
             bool checked = IsDlgButtonChecked(hDlg, IDC_CHECK_HIDE) == BST_CHECKED;
             EnableWindow(GetDlgItem(hDlg, IDC_CHECK_CYCLE), !checked);
             pTempPrefs->SetIsHidden(device, checked);
@@ -306,7 +357,7 @@ INT_PTR CALLBACK SettingsDialogProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM 
             {
                 bBusy = true;
                 WCHAR keyname[256] = {};
-                int   device = ComboBox_GetCurSel(GetDlgItem(hDlg, IDC_COMBO1));
+                int   device = GetSelectedDevIndex(hDlg);
                 GetDlgItemTextW(hDlg, IDC_EDIT_KEY, keyname, 255);
                 pTempPrefs->SetHotkeyString(device, keyname);
                 bBusy = false;

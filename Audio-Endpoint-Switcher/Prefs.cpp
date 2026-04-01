@@ -212,6 +212,24 @@ wstring CQSESPrefs::GetName(int index) const
     return ValidIndex(index, GetCount()) ? mDevices[index].Name : wstring{};
 }
 
+void CQSESPrefs::SetCustomName(int index, const wstring& name)
+{
+    if (ValidIndex(index, GetCount()))
+        mDevices[index].CustomName = name;
+}
+
+wstring CQSESPrefs::GetCustomName(int index) const
+{
+    return ValidIndex(index, GetCount()) ? mDevices[index].CustomName : wstring{};
+}
+
+wstring CQSESPrefs::GetDisplayName(int index) const
+{
+    if (!ValidIndex(index, GetCount())) return {};
+    const auto& custom = mDevices[index].CustomName;
+    return custom.empty() ? mDevices[index].Name : custom;
+}
+
 wstring CQSESPrefs::GetID(int index) const
 {
     return ValidIndex(index, GetCount()) ? mDevices[index].DeviceID : wstring{};
@@ -225,6 +243,7 @@ void CQSESPrefs::Clear(int index)
 {
     if (!ValidIndex(index, GetCount())) return;
     mDevices[index].HotkeyString.clear();
+    mDevices[index].CustomName.clear();
     mDevices[index].KeyCode             = 0;
     mDevices[index].KeyMods             = 0;
     mDevices[index].HasHotkey           = false;
@@ -294,18 +313,19 @@ bool CQSESPrefs::Save()
 
     for (const auto& dev : mDevices)
     {
-        fwprintf(fh, L"[%s]\n",            dev.DeviceID.c_str());
-        fwprintf(fh, L"\tName = %s\n",      dev.Name.c_str());
-        fwprintf(fh, L"\tHasKey = %d\n",    dev.HasHotkey           ? 1 : 0);
-        fwprintf(fh, L"\tKeyString = %s\n", dev.HotkeyString.c_str());
-        fwprintf(fh, L"\tExcluded = %d\n",  dev.IsExcludedFromCycle ? 1 : 0);
-        fwprintf(fh, L"\tHidden = %d\n",    dev.IsHidden            ? 1 : 0);
-        fwprintf(fh, L"\tPresent = %d\n",   dev.IsPresent           ? 1 : 0);
-        fwprintf(fh, L"\tKeyCode = 0x%x\n", dev.KeyCode);
-        fwprintf(fh, L"\tAltKey = %d\n",    (dev.KeyMods & MOD_ALT)     ? 1 : 0);
-        fwprintf(fh, L"\tControlKey = %d\n",(dev.KeyMods & MOD_CONTROL) ? 1 : 0);
-        fwprintf(fh, L"\tShiftKey = %d\n",  (dev.KeyMods & MOD_SHIFT)   ? 1 : 0);
-        fwprintf(fh, L"\tWinKey = %d\n",    (dev.KeyMods & MOD_WIN)     ? 1 : 0);
+        fwprintf(fh, L"[%s]\n",               dev.DeviceID.c_str());
+        fwprintf(fh, L"\tName = %s\n",         dev.Name.c_str());
+        fwprintf(fh, L"\tCustomName = %s\n",   dev.CustomName.c_str());
+        fwprintf(fh, L"\tHasKey = %d\n",       dev.HasHotkey           ? 1 : 0);
+        fwprintf(fh, L"\tKeyString = %s\n",    dev.HotkeyString.c_str());
+        fwprintf(fh, L"\tExcluded = %d\n",     dev.IsExcludedFromCycle ? 1 : 0);
+        fwprintf(fh, L"\tHidden = %d\n",       dev.IsHidden            ? 1 : 0);
+        fwprintf(fh, L"\tPresent = %d\n",      dev.IsPresent           ? 1 : 0);
+        fwprintf(fh, L"\tKeyCode = 0x%x\n",    dev.KeyCode);
+        fwprintf(fh, L"\tAltKey = %d\n",       (dev.KeyMods & MOD_ALT)     ? 1 : 0);
+        fwprintf(fh, L"\tControlKey = %d\n",   (dev.KeyMods & MOD_CONTROL) ? 1 : 0);
+        fwprintf(fh, L"\tShiftKey = %d\n",     (dev.KeyMods & MOD_SHIFT)   ? 1 : 0);
+        fwprintf(fh, L"\tWinKey = %d\n",       (dev.KeyMods & MOD_WIN)     ? 1 : 0);
     }
     fclose(fh);
     return true;
@@ -421,6 +441,7 @@ bool CQSESPrefs::Load()
         DevicePrefs dev;
         dev.DeviceID            = kv.first.substr(1, kv.first.size() - 2);
         dev.Name                = getString(sec, L"name");
+        dev.CustomName          = getString(sec, L"customname");
         dev.HotkeyString        = getString(sec, L"keystring");
         dev.KeyCode             = getUInt(sec, L"keycode");
         dev.HasHotkey           = getBool(sec, L"haskey");

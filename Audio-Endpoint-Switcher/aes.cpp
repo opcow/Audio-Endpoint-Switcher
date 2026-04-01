@@ -476,7 +476,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam,
         {
             wstring id   = GetDefaultAudioPlaybackDevice();
             int     idx  = gPrefs.FindByID(id);
-            wstring name = (idx >= 0) ? gPrefs.GetName(idx) : id;
+            wstring name = (idx >= 0) ? gPrefs.GetDisplayName(idx) : id;
             ShowDeviceToast(name);
         }
         return 0;
@@ -518,7 +518,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam,
             {
                 if (gPrefs.GetIsHidden(i) || !gPrefs.GetIsPresent(i))
                     continue;
-                wstring menuStr = gPrefs.GetName(i);
+                wstring menuStr = gPrefs.GetDisplayName(i);
                 if (gPrefs.GetHotkeyEnabled(i))
                     menuStr += MakeHotkeyString(gPrefs.GetHotkeyCode(i),
                                                 gPrefs.GetHotkeyMods(i));
@@ -773,7 +773,7 @@ void UpdateTrayTooltip()
     wstring id = GetDefaultAudioPlaybackDevice();
     int idx = gPrefs.FindByID(id);
     wstring name =
-        (idx >= 0) ? gPrefs.GetName(idx) : wstring(gszApplicationToolTip);
+        (idx >= 0) ? gPrefs.GetDisplayName(idx) : wstring(gszApplicationToolTip);
     wcsncpy_s(nidApp.szTip, 64, name.c_str(), _TRUNCATE);
     Shell_NotifyIconW(NIM_MODIFY, &nidApp);
 }
