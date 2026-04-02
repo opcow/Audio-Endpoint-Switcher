@@ -108,7 +108,7 @@ static void InitComboBox(HWND hDlg)
         // list never silently truncates the combo box.
         if (!pTempPrefs->GetIsPresent(i))
             continue;
-        ComboBox_AddString(hCombo, pTempPrefs->GetDisplayName(i).c_str());
+        ComboBox_AddString(hCombo, pTempPrefs->GetName(i).c_str());
         gComboIndexToDevIndex.push_back(i);
     }
     ComboBox_SetCurSel(hCombo, 0);
@@ -197,21 +197,10 @@ static void SetDialogItems(HWND hDlg)
     ToggleCycleKey(hDlg);
 }
 
-static void UpdateComboLabel(HWND hDlg)
+static void UpdateComboLabel(HWND /*hDlg*/)
 {
-    // Refresh the text of the currently selected combo-box item to reflect
-    // any custom name the user has just typed.
-    int combo  = ComboBox_GetCurSel(GetDlgItem(hDlg, IDC_COMBO1));
-    int device = GetSelectedDevIndex(hDlg);
-    if (combo < 0 || device < 0) return;
-
-    // ComboBox_DeleteString / InsertString would reset selection; instead
-    // manipulate CB_DELETESTRING + CB_INSERTSTRING at the same position.
-    HWND hCombo = GetDlgItem(hDlg, IDC_COMBO1);
-    SendMessageW(hCombo, CB_DELETESTRING, combo, 0);
-    SendMessageW(hCombo, CB_INSERTSTRING, combo,
-                 reinterpret_cast<LPARAM>(pTempPrefs->GetDisplayName(device).c_str()));
-    ComboBox_SetCurSel(hCombo, combo);
+    // The combo box always shows the original system device name, so there
+    // is nothing to update when the user edits the custom name.
 }
 
 static void HandleCycleKeyModClick(HWND hDlg, UINT param)
