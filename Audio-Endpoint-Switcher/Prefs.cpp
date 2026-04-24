@@ -393,6 +393,8 @@ bool CQSESPrefs::Load()
     if (!ReadConfig(filePath, sections))
         return false;
 
+    bool needsRewrite = false;
+
     // Helper lambdas
     auto getBool = [](const map<wstring, wstring>& sec, const wstring& key) -> bool
     {
@@ -438,8 +440,12 @@ bool CQSESPrefs::Load()
             break;
 
         const auto& sec = kv.second;
+        auto fullId = kv.first.substr(1, kv.first.size() - 2);
         DevicePrefs dev;
-        dev.DeviceID            = kv.first.substr(1, kv.first.size() - 2);
+        auto guid = ExtractDeviceGuid(fullId);
+        if (guid != fullId)
+            needsRewrite = true;
+        dev.DeviceID            = guid;
         dev.Name                = getString(sec, L"name");
         dev.CustomName          = getString(sec, L"customname");
         dev.HotkeyString        = getString(sec, L"keystring");
@@ -455,5 +461,7 @@ bool CQSESPrefs::Load()
         if (getBool(sec, L"winkey"))     dev.KeyMods |= MOD_WIN;
         mDevices.push_back(std::move(dev));
     }
+    if (needsRewrite)
+        Save();
     return true;
 }
