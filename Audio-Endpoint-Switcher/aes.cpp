@@ -845,7 +845,7 @@ int EnumerateDevices()
             continue;
 
         DevicePrefs dev;
-        dev.DeviceID = wstrID;
+        dev.DeviceID = ExtractDeviceGuid(wstrID);
         CoTaskMemFree(wstrID);
 
         if (FAILED(pDevice->OpenPropertyStore(STGM_READ, &pStore)))
