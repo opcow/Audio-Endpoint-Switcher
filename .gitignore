@@ -17,6 +17,7 @@ Release
 *.pdb
 *.log
 *.7z
+*.exe
 Audio-Endpoint-Switcher/x64
 x64
 Audio-Endpoint-Switcher/Quick So.E8256141
