@@ -5,6 +5,12 @@
 #include <map>
 #include "windows.h"
 
+inline std::wstring ExtractDeviceGuid(const std::wstring& fullId)
+{
+    auto pos = fullId.find_last_of(L'{');
+    return (pos != std::wstring::npos) ? fullId.substr(pos) : fullId;
+}
+
 inline constexpr int cMaxDevices = 20;
 
 struct DevicePrefs
