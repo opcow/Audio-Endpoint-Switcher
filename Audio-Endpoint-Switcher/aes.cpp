@@ -275,7 +275,7 @@ static bool AlreadyRunning()
     static HANDLE s_hMutex = CreateMutexW(nullptr, TRUE, kMutexName);
 
     if (s_hMutex == nullptr)
-        return false; // couldn't create mutex — let this instance run
+        return true;  // couldn't verify single instance — deny launch
 
     if (GetLastError() == ERROR_ALREADY_EXISTS)
     {
