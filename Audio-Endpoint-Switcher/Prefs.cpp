@@ -45,6 +45,8 @@ void CQSESPrefs::Add(const DevicePrefs& sdi)
     if (index != -1)
     {
         mDevices[index] = sdi;
+        if (mDevices[index].EndpointID.empty())
+            mDevices[index].EndpointID = mDevices[index].DeviceID;
         mDevices[index].IsPresent = true;
     }
     else
@@ -52,6 +54,8 @@ void CQSESPrefs::Add(const DevicePrefs& sdi)
         if (static_cast<int>(mDevices.size()) >= cMaxDevices)
             Remove(0);
         DevicePrefs d = sdi;
+        if (d.EndpointID.empty())
+            d.EndpointID = d.DeviceID;
         d.IsPresent = true;
         mDevices.push_back(std::move(d));
     }
@@ -65,15 +69,18 @@ void CQSESPrefs::Update(const DevicePrefs& sdi)
     int index = FindByID(sdi.DeviceID);
     if (index != -1)
     {
-        mDevices[index].DeviceID  = sdi.DeviceID;
-        mDevices[index].Name      = sdi.Name;
-        mDevices[index].IsPresent = true;
+        mDevices[index].DeviceID   = sdi.DeviceID;
+        mDevices[index].EndpointID = sdi.EndpointID.empty() ? sdi.DeviceID : sdi.EndpointID;
+        mDevices[index].Name       = sdi.Name;
+        mDevices[index].IsPresent  = true;
     }
     else
     {
         if (static_cast<int>(mDevices.size()) >= cMaxDevices)
             Remove(0);
         DevicePrefs d = sdi;
+        if (d.EndpointID.empty())
+            d.EndpointID = d.DeviceID;
         d.IsPresent = true;
         mDevices.push_back(std::move(d));
     }
@@ -193,8 +200,9 @@ void CQSESPrefs::Sort()
 
 int CQSESPrefs::FindByID(const wstring& id) const
 {
+    const wstring normalizedId = ExtractDeviceGuid(id);
     for (int i = 0; i < GetCount(); ++i)
-        if (mDevices[i].DeviceID == id)
+        if (mDevices[i].DeviceID == normalizedId)
             return i;
     return -1;
 }
@@ -232,7 +240,10 @@ wstring CQSESPrefs::GetDisplayName(int index) const
 
 wstring CQSESPrefs::GetID(int index) const
 {
-    return ValidIndex(index, GetCount()) ? mDevices[index].DeviceID : wstring{};
+    if (!ValidIndex(index, GetCount()))
+        return {};
+    return mDevices[index].EndpointID.empty() ? mDevices[index].DeviceID
+                                              : mDevices[index].EndpointID;
 }
 
 // ---------------------------------------------------------------------------
@@ -310,6 +321,7 @@ bool CQSESPrefs::Save()
     fwprintf(fh, L"\tControlKey = %d\n",        (mKeyMods & MOD_CONTROL) ? 1 : 0);
     fwprintf(fh, L"\tShiftKey = %d\n",          (mKeyMods & MOD_SHIFT)   ? 1 : 0);
     fwprintf(fh, L"\tWinKey = %d\n",            (mKeyMods & MOD_WIN)     ? 1 : 0);
+    fwprintf(fh, L"\tShowToast = %d\n",         mShowToast               ? 1 : 0);
 
     for (const auto& dev : mDevices)
     {
@@ -425,6 +437,7 @@ bool CQSESPrefs::Load()
         if (getBool(g, L"controlkey")) mKeyMods |= MOD_CONTROL;
         if (getBool(g, L"shiftkey"))   mKeyMods |= MOD_SHIFT;
         if (getBool(g, L"winkey"))     mKeyMods |= MOD_WIN;
+        mShowToast = getBool(g, L"showtoast");
     }
 
     // Device sections — keyed by Windows audio endpoint GUID pattern
@@ -446,6 +459,7 @@ bool CQSESPrefs::Load()
         if (guid != fullId)
             needsRewrite = true;
         dev.DeviceID            = guid;
+        dev.EndpointID          = fullId;
         dev.Name                = getString(sec, L"name");
         dev.CustomName          = getString(sec, L"customname");
         dev.HotkeyString        = getString(sec, L"keystring");

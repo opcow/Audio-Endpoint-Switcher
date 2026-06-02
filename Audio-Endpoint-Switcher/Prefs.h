@@ -19,7 +19,8 @@ struct DevicePrefs
     UINT        KeyCode               = 0;
     std::wstring Name;           // System-provided friendly name (from Windows)
     std::wstring CustomName;     // User-specified display name (overrides Name when non-empty)
-    std::wstring DeviceID;
+    std::wstring DeviceID;       // Stable GUID-based key used for matching/persistence
+    std::wstring EndpointID;     // Full Windows endpoint ID used when activating a device
     std::wstring HotkeyString;
     bool        HasHotkey             = false;
     bool        IsExcludedFromCycle   = false;
@@ -63,6 +64,8 @@ public:
     UINT         GetCycleKeyMods() const                     { return mKeyMods; }
     void         EnableCycleKey(bool enabled)                { mIsCycleKeyEnabled = enabled; }
     bool         GetCycleKeyEnabled() const                  { return mIsCycleKeyEnabled; }
+    void         SetShowToast(bool b)                        { mShowToast = b; }
+    bool         GetShowToast() const                        { return mShowToast; }
 
     // Per-device visibility / presence
     void SetIsHidden(int index, bool b);
@@ -105,4 +108,5 @@ private:
     UINT         mKeyMods           = 0;
     std::wstring mCycleKeyString;
     bool         mIsCycleKeyEnabled = false;
+    bool         mShowToast         = false;
 };

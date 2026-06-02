@@ -53,6 +53,7 @@ HWND gOpenWindow = nullptr;
 
 CQSESPrefs gPrefs;
 CMMNotificationClient* pClient = nullptr;
+bool gChangedViaTrayMenu = false;
 
 // ---------------------------------------------------------------------------
 // Forward declarations
@@ -477,7 +478,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam,
             wstring id   = GetDefaultAudioPlaybackDevice();
             int     idx  = gPrefs.FindByID(id);
             wstring name = (idx >= 0) ? gPrefs.GetDisplayName(idx) : id;
-            ShowDeviceToast(name);
+            if (gPrefs.GetShowToast() && !gChangedViaTrayMenu)
+                ShowDeviceToast(name);
+            gChangedViaTrayMenu = false;
         }
         return 0;
 
@@ -574,6 +577,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam,
                 wmId < static_cast<int>(ID_MENU_DEVICES + cMaxDevices))
             {
                 int devIdx = wmId - static_cast<int>(ID_MENU_DEVICES);
+                gChangedViaTrayMenu = true;
                 SetDefaultAudioPlaybackDevice(gPrefs.GetID(devIdx).c_str());
                 return 0;
             }
@@ -845,6 +849,7 @@ int EnumerateDevices()
             continue;
 
         DevicePrefs dev;
+        dev.EndpointID = wstrID;
         dev.DeviceID = ExtractDeviceGuid(wstrID);
         CoTaskMemFree(wstrID);
 

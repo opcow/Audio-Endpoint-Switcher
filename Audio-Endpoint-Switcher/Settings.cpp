@@ -272,6 +272,10 @@ INT_PTR CALLBACK SettingsDialogProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM 
                 DisableAutoStart();
             return TRUE;
 
+        case IDC_CHECK_TOAST:
+            pTempPrefs->SetShowToast(IsDlgButtonChecked(hDlg, IDC_CHECK_TOAST) == BST_CHECKED);
+            return TRUE;
+
         case IDC_COMBO1:
             if (HIWORD(wParam) == CBN_SELCHANGE)
             {
@@ -404,6 +408,7 @@ INT_PTR CALLBACK SettingsDialogProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM 
         InitComboBox(hDlg);
         SetDialogItems(hDlg);
         CheckDlgButton(hDlg, IDC_CHECK_AUTOSTART, CheckAutoStart());
+        CheckDlgButton(hDlg, IDC_CHECK_TOAST, pTempPrefs->GetShowToast());
         bBusy = false;
         return TRUE;
     }
