@@ -17,6 +17,7 @@
 
 #if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENU)
 LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
+#pragma code_page(1252)
 
 #ifdef APSTUDIO_INVOKED
 /////////////////////////////////////////////////////////////////////////////
@@ -82,7 +83,7 @@ FONT 8, "MS Shell Dlg", 400, 0, 0x1
 BEGIN
     DEFPUSHBUTTON   "OK",IDOK,249,90,50,14
     LTEXT           "Quick Sound Endpoit Switcher",IDC_STATIC_APP,97,32,155,8
-    LTEXT           "Copyright � 2013",IDC_STATIC,97,43,155,8
+    LTEXT           "Copyright 2013",IDC_STATIC,97,43,155,8
     LTEXT           "Mitch Crane",IDC_STATIC,97,54,155,8
     ICON            IDI_ICON1,IDC_STATIC,56,32,20,20,SS_REALSIZEIMAGE
 END
@@ -116,6 +117,7 @@ BEGIN
     CONTROL         "Run when Windows starts",IDC_CHECK_AUTOSTART,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,14,196,99,10
     EDITTEXT        IDC_EDIT_DEVICE_NAME,179,38,167,14,ES_AUTOHSCROLL
     RTEXT           "Custom Name",IDC_STATIC,110,41,63,8
+    CONTROL         "Show toast",IDC_CHECK_TOAST,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,128,196,52,10
 END
 
 
@@ -152,8 +154,8 @@ END
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 1,0,15,4
- PRODUCTVERSION 1,0,15,4
+ FILEVERSION 1,0,16,7
+ PRODUCTVERSION 1,0,16,7
  FILEFLAGSMASK 0x3fL
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -170,12 +172,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "Wilder Napalm"
             VALUE "FileDescription", "Audio Endpoint Switcher"
-            VALUE "FileVersion", "1.0.15.0"
+            VALUE "FileVersion", "1.0.16.0"
             VALUE "InternalName", "AES.exe"
             VALUE "LegalCopyright", "Copyright (C) 2013"
             VALUE "OriginalFilename", "AES.exe"
             VALUE "ProductName", "Audio Endpoint Switcher"
-            VALUE "ProductVersion", "1.0.15.0"
+            VALUE "ProductVersion", "1.0.16.0"
         END
     END
     BLOCK "VarFileInfo"
@@ -191,6 +193,11 @@ END
 //
 
 IDD_DIALOG_SETTINGS AFX_DIALOG_LAYOUT
+BEGIN
+    0
+END
+
+IDD_DIALOG_ABOUT AFX_DIALOG_LAYOUT
 BEGIN
     0
 END
