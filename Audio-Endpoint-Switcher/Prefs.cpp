@@ -440,8 +440,9 @@ bool CQSESPrefs::Load()
         mShowToast = getBool(g, L"showtoast");
     }
 
-    // Device sections — keyed by Windows audio endpoint GUID pattern
-    wregex guidRegex(L"\\[\\{\\d\\.\\d\\.\\d\\.\\d{8}\\}\\.\\{[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\}\\]");
+    // Device sections — keyed by device GUID, optionally prefixed with the
+    // legacy "{0.0.0.00000000}." endpoint portion (migrated on load)
+    wregex guidRegex(L"\\[(\\{\\d\\.\\d\\.\\d\\.\\d{8}\\}\\.)?\\{[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\}\\]");
     wsmatch wMatch;
 
     mDevices.clear();
