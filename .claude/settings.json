@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(git commit -q -m 'Fix device prefs not loading after restart *)",
-      "Bash(git push *)"
-    ]
-  }
-}

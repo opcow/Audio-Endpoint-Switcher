@@ -11,6 +11,9 @@ if not exist "%~dp0x64\Release" mkdir "%~dp0x64\Release"
 if not exist "%~dp0x64\ReleaseNoDLL" mkdir "%~dp0x64\ReleaseNoDLL"
 
 set BUILDNOFILE=%~dp0build-number.txt
+set VERSIONFILE=%~dp0version.txt
+
+set /p VERSION=<"%VERSIONFILE%"
 
 set BUILDNO=0
 if exist "%BUILDNOFILE%" (
@@ -19,9 +22,9 @@ if exist "%BUILDNOFILE%" (
 set /a BUILDNO+=1
 echo !BUILDNO!>"%BUILDNOFILE%"
 
-echo Building version 1.0.15.!BUILDNO!...
+echo Building version !VERSION!.!BUILDNO!...
 
-powershell -ExecutionPolicy Bypass -File "%~dp0update-build-num.ps1" -BuildNo "!BUILDNO!" -RcFile "%~dp0Audio-Endpoint-Switcher\aes.rc"
+powershell -ExecutionPolicy Bypass -File "%~dp0update-build-num.ps1" -Version "!VERSION!" -BuildNo "!BUILDNO!" -RcFile "%~dp0Audio-Endpoint-Switcher\aes.rc"
 
 "%MSBUILD%" "%~dp0Audio-Endpoint-Switcher.sln" /p:Configuration=Debug /p:Platform=x64 /p:OutDir="%~dp0x64\Debug\\" /p:IntDir="%~dp0x64\Debug\\" /p:GenerateFullPaths=true
 "%MSBUILD%" "%~dp0Audio-Endpoint-Switcher.sln" /p:Configuration=Release /p:Platform=x64 /p:OutDir="%~dp0x64\Release\\" /p:IntDir="%~dp0x64\Release\\" /p:GenerateFullPaths=true
